@@ -1,6 +1,6 @@
 package com.jd.ads.platform;
 
-import com.jd.ads.platform.misc.Encounter;
+import com.jd.ads.platform.misc.encounter.LongEncounter;
 import com.jd.ads.platform.misc.tuple.Tuple;
 import com.jd.ads.platform.misc.tuple.Tuple2;
 import org.apache.maven.plugin.AbstractMojo;
@@ -12,10 +12,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,11 +24,6 @@ import java.util.regex.Pattern;
  */
 @Mojo(name = "extract", defaultPhase = LifecyclePhase.PROCESS_SOURCES)
 public class MsgExtractor extends AbstractMojo {
-
-    /**
-     * messages 文件名前缀
-     */
-    private static final String MESSAGE_FILE_NAME = "messages";
 
     /**
      * message 参数正则
@@ -51,15 +43,21 @@ public class MsgExtractor extends AbstractMojo {
     private boolean commentAbsolutePath;
 
     /**
+     * messages 文件名前缀
+     */
+    @Parameter(defaultValue = "messages", property = "msgBaseName", readonly = true)
+    private String msgBaseName;
+
+    /**
      * messages 文件输出文件夹
      */
-    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msg.outputDir", required = true)
-    private File outputDir;
+    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msgDir", required = true)
+    private File msgDir;
 
     /**
      * 包含 messages 的代码扫描目录
      */
-    @Parameter(defaultValue = "${project.build.directory}", property = "msg.scanDir", required = true)
+    @Parameter(defaultValue = "${project.build.directory}", property = "scanDir", required = true)
     private File scanDir;
 
     /**
@@ -71,13 +69,13 @@ public class MsgExtractor extends AbstractMojo {
     /**
      * 扫描目录下需要读取解析的文件
      */
-    @Parameter(defaultValue = ".*?\\.java", property = "msg.includeFilePatterns", required = true)
+    @Parameter(defaultValue = ".*?\\.java", property = "includeFilePatterns", required = true)
     private Pattern[] includeFilePatterns;
 
     /**
      * 扫描目录下需要排除的文件
      */
-    @Parameter(property = "msg.excludeFilePatterns")
+    @Parameter(property = "excludeFilePatterns")
     private Pattern[] excludeFilePatterns;
 
     public void setMsgPatterns(String[] msgPatterns) {
@@ -131,7 +129,7 @@ public class MsgExtractor extends AbstractMojo {
                         return false;
                     }).forEach(filePath -> {
                 try (BufferedReader bufferedReader = new BufferedReader(new FileReader(filePath.toFile()))) {
-                    Encounter encounter = new Encounter(1L);
+                    LongEncounter encounter = new LongEncounter(1L);
                     bufferedReader.lines().forEachOrdered(line -> {
                         for (Pattern pattern : msgPatterns) {
                             Matcher matcher = pattern.matcher(line);
@@ -166,18 +164,21 @@ public class MsgExtractor extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
-        File f = outputDir;
-        if (!f.exists()) {
+        File dir = msgDir;
+        if (!dir.exists()) {
             // 输出目录不存在的话先递归创建输出目录
-            boolean success = f.mkdirs();
+            boolean success = dir.mkdirs();
             if (!success) {
-                throw new MojoExecutionException("Create directory `" + outputDir.getAbsolutePath() + "` failed.");
+                throw new MojoExecutionException("Create directory `" + msgDir.getAbsolutePath() + "` failed.");
             }
         }
+        File msgFile = new File(dir, msgBaseName + ".properties");
+        Properties prop = new Properties();
+        // todo: ...
 
         Map<String, List<Tuple2<Path, Long>>> msgResultMap = getMsgResult();
 
-        try (FileWriter w = new FileWriter(new File(f, MESSAGE_FILE_NAME + ".po"))) {
+        try (FileWriter w = new FileWriter(new File(dir, msgBaseName + ".properties"))) {
             int subStrIndex = commentAbsolutePath ? 0 : projectBaseDir.getAbsolutePath().length() + 1;
             for (Map.Entry<String, List<Tuple2<Path, Long>>> entry : msgResultMap.entrySet()) {
                 for (Tuple2<Path, Long> tuple : entry.getValue()) {
@@ -187,12 +188,10 @@ public class MsgExtractor extends AbstractMojo {
                     w.write(tuple.v2.toString());
                     w.write('\n');
                 }
-                w.write("msgid \"");
                 w.write(entry.getKey());
-                w.write("\"\n");
-                w.write("msgstr \"");
-                w.write("\"\n");
-                w.write('\n');
+                w.write(" = ");
+                w.write(entry.getKey());
+                w.write("\n\n");
             }
             w.flush();
         } catch (IOException e) {
