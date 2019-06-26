@@ -9,6 +9,7 @@ package com.jd.ads.platform.misc.generator;
 public class MsgKeyGenerator implements Generator {
 
     private static final String KEY_CHARS = "0123456789";
+    private static final String KEY_PREFIX = "SAMPLE";
 
     private int keyLen;
 
@@ -23,20 +24,6 @@ public class MsgKeyGenerator implements Generator {
 
     @Override
     public String generate(CharSequence input) {
-        char[] chars = new char[keyLen];
-        int csLen = input.length();
-        int csIndex = 0;
-        while (csIndex < csLen) {
-            for (int i = 0; i < keyLen && csIndex < csLen; i++, csLen++) {
-                chars[i] ^= input.charAt(csIndex);
-            }
-        }
-
-        // 生成 key
-        int keyCharLen = KEY_CHARS.length();
-        for (int i = 0; i< keyLen; i++) {
-            chars[i] = KEY_CHARS.charAt(chars[i] % keyCharLen);
-        }
-        return new String(chars);
+        return KEY_PREFIX + input.hashCode();
     }
 }

@@ -1,7 +1,6 @@
 package com.jd.ads.platform;
 
 import me.xdrop.fuzzywuzzy.Applicable;
-import me.xdrop.fuzzywuzzy.Extractor;
 import me.xdrop.fuzzywuzzy.FuzzySearch;
 import me.xdrop.fuzzywuzzy.algorithms.WeightedRatio;
 import me.xdrop.fuzzywuzzy.model.ExtractedResult;
@@ -11,10 +10,8 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -29,17 +26,17 @@ public class MsgDeduplication extends AbstractMojo {
     /**
      * messages 文件名前缀
      */
-    @Parameter(defaultValue = "messages", property = "msg.msgBaseName", readonly = true)
+    @Parameter(defaultValue = "messages", property = "msgBaseName", readonly = true)
     private String msgBaseName;
 
     /**
      * messages 文件输出文件夹
      */
-    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msg.msgDir", required = true)
+    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msgDir", required = true)
     private File msgDir;
 
     /**
-     * message 相似度阈值 1-100
+     * message 相似度阈值 1-99
      */
     @Parameter(defaultValue = "85", property = "msg.msgSimilarityCutoff", readonly = true)
     private int msgSimilarityCutoff;
@@ -52,8 +49,18 @@ public class MsgDeduplication extends AbstractMojo {
         }
         Properties msgProperties = new Properties();
         try {
-            msgProperties.load(new FileInputStream(msgFile));
-            Set<String> propNameSet = msgProperties.stringPropertyNames();
+            msgProperties.load(new InputStreamReader(new FileInputStream(msgFile), StandardCharsets.UTF_8));
+            // 转换为 msg 到具体 code 的 map
+            Map<String, String> valueKeyMap = new HashMap<>(msgProperties.size());
+            msgProperties.forEach((k, v) -> {
+                String kStr = k.toString();
+                String vStr = v.toString();
+                if (valueKeyMap.containsKey(vStr)) {
+                    getLog().warn("Value `" + kStr + "=" + vStr + "` duplicated with `" + valueKeyMap.get(vStr) + "=" + vStr + "`");
+                }
+                valueKeyMap.put(vStr, kStr);
+            });
+            Set<String> propNameSet =valueKeyMap.keySet();
             List<List<ExtractedResult>> similarPropNames = new ArrayList<>();
 
             Applicable func = new WeightedRatio();
@@ -83,10 +90,17 @@ public class MsgDeduplication extends AbstractMojo {
             }
 
             similarPropNames.forEach(list -> {
-                list.forEach(each -> {
-                    getLog().info(each.getString() + "--> score=" + each.getScore());
-                });
-                getLog().info("~~");
+                if (list.size() < 2) {
+                    // 只有一个元素的直接忽略
+                    return;
+                }
+                Iterator<ExtractedResult> iterator = list.iterator();
+                ExtractedResult first = iterator.next();
+                getLog().info("[ " + first.getString() + " = " + msgProperties.getProperty(first.getString()) + " ] highly similar to:");
+                while (iterator.hasNext()) {
+                    ExtractedResult next = iterator.next();
+                    getLog().info("    [ " + next.getString() + " = " + msgProperties.getProperty(next.getString()) + " ] --> score=" + next.getScore());
+                }
             });
         } catch (IOException e) {
             getLog().error(e);

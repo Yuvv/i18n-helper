@@ -1,6 +1,8 @@
 package com.jd.ads.platform;
 
 import com.jd.ads.platform.misc.encounter.LongEncounter;
+import com.jd.ads.platform.misc.generator.Generator;
+import com.jd.ads.platform.misc.generator.MsgKeyGenerator;
 import com.jd.ads.platform.misc.tuple.Tuple;
 import com.jd.ads.platform.misc.tuple.Tuple2;
 import org.apache.maven.plugin.AbstractMojo;
@@ -10,6 +12,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -63,7 +66,7 @@ public class MsgExtractor extends AbstractMojo {
     /**
      * 代码中的 messages 匹配正则
      */
-    @Parameter(property = "msg.msgPatterns", required = true)
+    @Parameter(property = "msgPatterns", required = true)
     private Pattern[] msgPatterns;
 
     /**
@@ -172,28 +175,46 @@ public class MsgExtractor extends AbstractMojo {
                 throw new MojoExecutionException("Create directory `" + msgDir.getAbsolutePath() + "` failed.");
             }
         }
-        File msgFile = new File(dir, msgBaseName + ".properties");
         Properties prop = new Properties();
-        // todo: ...
+        File msgFile = new File(dir, msgBaseName + ".properties");
+        if (msgFile.exists()) {
+            try (FileInputStream is = new FileInputStream(msgFile)) {
+                prop.load(new InputStreamReader(is, StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                getLog().error(e);
+            }
+        }
+        Map<Object, Object> valueKeyMap = new HashMap<>(prop.size());
+        prop.forEach((k, v) -> {
+            if (valueKeyMap.containsKey(v)) {
+                getLog().warn("Value `" + k + "=" + v + "` duplicated with `" + valueKeyMap.get(v) + "=" + v + "`");
+            }
+            valueKeyMap.put(v, k);
+        });
+        getLog().info(valueKeyMap.toString());
 
         Map<String, List<Tuple2<Path, Long>>> msgResultMap = getMsgResult();
+        Generator keyGenerator = new MsgKeyGenerator();
 
-        try (FileWriter w = new FileWriter(new File(dir, msgBaseName + ".properties"))) {
+        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(msgFile, true), StandardCharsets.UTF_8)) {
             int subStrIndex = commentAbsolutePath ? 0 : projectBaseDir.getAbsolutePath().length() + 1;
             for (Map.Entry<String, List<Tuple2<Path, Long>>> entry : msgResultMap.entrySet()) {
                 for (Tuple2<Path, Long> tuple : entry.getValue()) {
-                    w.write("# ");
-                    w.write(tuple.v1.toString().substring(subStrIndex));
-                    w.write(':');
-                    w.write(tuple.v2.toString());
-                    w.write('\n');
+                    writer.write("# ");
+                    writer.write(tuple.v1.toString().substring(subStrIndex));
+                    writer.write(':');
+                    writer.write(tuple.v2.toString());
+                    writer.write('\n');
                 }
-                w.write(entry.getKey());
-                w.write(" = ");
-                w.write(entry.getKey());
-                w.write("\n\n");
+                if (valueKeyMap.containsKey(entry.getKey())) {
+                    getLog().warn("Value `" + entry.getKey() + "` duplicated with `" + valueKeyMap.get(entry.getKey()) + "=" + entry.getKey() + "`, however message will be wrote and you must deal with it");
+                }
+                writer.write(keyGenerator.generate(entry.getKey()));
+                writer.write(" = ");
+                writer.write(entry.getKey());
+                writer.write("\n\n");
             }
-            w.flush();
+            writer.flush();
         } catch (IOException e) {
             getLog().error(e);
         }
