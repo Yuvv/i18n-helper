@@ -51,11 +51,32 @@
 
 ## MsgMatcher
 
-多语言情况下容易出现只在其中一个或几个语言资源文件里面有更新而其它的忘记更新的情况。
+多语言情况下容易出现只在其中一个或几个语言资源文件里面有更新而其它的忘记更新的情况。如：
 
-`MsgMatcher` 用于对比这些资源文件的差异，并给出相应的提示。 
+1. 在默认语言包里面添加忘了在其它语言添加。
+2. 在默认语言删除忘了在其他语言删除。
+3. 默认语言包与显示声明的默认语言包相同key的value不同。
 
-*todo: 开发中。。。*
+`MsgMatcher` 用于对比这些资源文件的差异，并给出相应的提示，以便人工做出处理。 
+
+**可配置项**：
+- `msgDir`: 同上，不赘述。
+- `msgBaseName`: 同上，不赘述。
+- `matchLocales`：需要匹配的语言包类型，若不填写则会处理 msg 路径下所有语言包
+- `defaultLocale`：默认语言包语言类型，若不设置则会取系统默认语言。
+
+**示例配置**：
+```xml
+<configuration>
+    <scanDir>${basedir}/src/main/java/com/jd/ads/cpd/base/services/core/</scanDir>
+    <msgDir>${basedir}/src/main/resources/i18n/</msgDir>
+    <defaultLocale>zh-CN</defaultLocale>
+    <matchLocales>
+        <locale>en-US</locale>
+        <locale>jp</locale>
+    </matchLocales>
+</configuration>
+```
 
 ## MsgDeduplication
 
