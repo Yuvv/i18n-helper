@@ -3,8 +3,6 @@ package com.jd.ads.platform;
 import com.jd.ads.platform.misc.encounter.LongEncounter;
 import com.jd.ads.platform.misc.generator.Generator;
 import com.jd.ads.platform.misc.generator.MsgKeyGenerator;
-import com.jd.ads.platform.misc.tuple.Tuple;
-import com.jd.ads.platform.misc.tuple.Tuple2;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -18,6 +16,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 提取
@@ -54,14 +53,14 @@ public class MsgExtractor extends AbstractMojo {
     /**
      * messages 文件输出文件夹
      */
-    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msgDir", required = true)
-    private File msgDir;
+    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msgDirectory", required = true)
+    private File msgDirectory;
 
     /**
      * 包含 messages 的代码扫描目录
      */
-    @Parameter(defaultValue = "${project.build.directory}", property = "scanDir", required = true)
-    private File scanDir;
+    @Parameter(defaultValue = "${project.build.directory}", property = "scanDirectories", required = true)
+    private File[] scanDirectories;
 
     /**
      * 代码中的 messages 匹配正则
@@ -108,58 +107,67 @@ public class MsgExtractor extends AbstractMojo {
         }
     }
 
-    private Map<String, List<Tuple2<Path, Long>>> getMsgResult() {
-        Map<String, List<Tuple2<Path, Long>>> msgResultMap = new HashMap<>();
-        try {
-            Files.walk(scanDir.toPath())
-                    .filter(Files::isRegularFile)
-                    .filter(path -> {
-                        if (excludeFilePatterns != null && excludeFilePatterns.length > 0) {
-                            for (Pattern pattern : excludeFilePatterns) {
-                                if (pattern.matcher(path.toAbsolutePath().toString()).matches()) {
-                                    getLog().info("File " + path.toString() + " excluded");
-                                    return false;
+    /**
+     * 通过逐行扫描，利用正则匹配，从代码中获取 msg
+     *
+     * @return msg -> path -> lineNo 的映射
+     */
+    private Map<String, Map<Path, List<Long>>> getMsgResult() {
+        // 使用 tree map 保证有序
+        Map<String, Map<Path, List<Long>>> msgResultMap = new TreeMap<>();
+        for (File scanDir : scanDirectories) {
+            try {
+                Files.walk(scanDir.toPath())
+                        .filter(Files::isRegularFile)
+                        .filter(path -> {
+                            if (excludeFilePatterns != null && excludeFilePatterns.length > 0) {
+                                for (Pattern pattern : excludeFilePatterns) {
+                                    if (pattern.matcher(path.toAbsolutePath().toString()).matches()) {
+                                        getLog().info("File " + path.toString() + " excluded");
+                                        return false;
+                                    }
                                 }
                             }
-                        }
-                        if (includeFilePatterns != null && includeFilePatterns.length > 0) {
-                            for (Pattern pattern : includeFilePatterns) {
-                                if (pattern.matcher(path.toAbsolutePath().toString()).matches()) {
-                                    return true;
+                            if (includeFilePatterns != null && includeFilePatterns.length > 0) {
+                                for (Pattern pattern : includeFilePatterns) {
+                                    if (pattern.matcher(path.toAbsolutePath().toString()).matches()) {
+                                        return true;
+                                    }
                                 }
                             }
-                        }
-                        return false;
-                    }).forEach(filePath -> {
-                try (BufferedReader bufferedReader = new BufferedReader(new FileReader(filePath.toFile()))) {
-                    LongEncounter encounter = new LongEncounter(1L);
-                    bufferedReader.lines().forEachOrdered(line -> {
-                        for (Pattern pattern : msgPatterns) {
-                            Matcher matcher = pattern.matcher(line);
-                            if (matcher.matches()) {
-                                String msg = matcher.group("msg");
-                                String[] msgSegments = MSG_PARAM_PATTERN.split(msg);
-                                StringBuilder sb = new StringBuilder();
-                                for (int i = 0; i < msgSegments.length; i++) {
-                                    sb.append(msgSegments[i]);
-                                    sb.append('{');
-                                    sb.append(i);
-                                    sb.append('}');
+                            return false;
+                        }).forEach(filePath -> {
+                    try (BufferedReader bufferedReader = new BufferedReader(new FileReader(filePath.toFile()))) {
+                        LongEncounter encounter = new LongEncounter(1L);
+                        bufferedReader.lines().forEachOrdered(line -> {
+                            for (Pattern pattern : msgPatterns) {
+                                Matcher matcher = pattern.matcher(line);
+                                if (matcher.matches()) {
+                                    String msg = matcher.group("msg");
+                                    String[] msgSegments = MSG_PARAM_PATTERN.split(msg);
+                                    StringBuilder sb = new StringBuilder();
+                                    for (int i = 0; i < msgSegments.length; i++) {
+                                        sb.append(msgSegments[i]);
+                                        sb.append('{');
+                                        sb.append(i);
+                                        sb.append('}');
+                                    }
+                                    sb.delete(sb.length() - 3, sb.length());
+                                    // 使用 tree map 保证有序
+                                    msgResultMap.computeIfAbsent(sb.toString(), k -> new TreeMap<>())
+                                            .computeIfAbsent(filePath, path -> new ArrayList<>()).add(encounter.getCount());
                                 }
-                                sb.delete(sb.length() - 3, sb.length());
-                                msgResultMap.computeIfAbsent(sb.toString(), k -> new ArrayList<>())
-                                        .add(Tuple.tuple(filePath, encounter.getCount()));
                             }
-                        }
-                        encounter.increase();
-                    });
-                    getLog().info("File " + filePath.toString() + " processing completed");
-                } catch (IOException e) {
-                    getLog().error("Read file[path=" + filePath.toString() + "] failed", e);
-                }
-            });
-        } catch (IOException e) {
-            getLog().error(e);
+                            encounter.increase();
+                        });
+                        getLog().info("File " + filePath.toString() + " processing completed");
+                    } catch (IOException e) {
+                        getLog().error("Read file[path=" + filePath.toString() + "] failed", e);
+                    }
+                });
+            } catch (IOException e) {
+                getLog().error(e);
+            }
         }
 
         return msgResultMap;
@@ -167,14 +175,15 @@ public class MsgExtractor extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
-        File dir = msgDir;
+        File dir = msgDirectory;
         if (!dir.exists()) {
             // 输出目录不存在的话先递归创建输出目录
             boolean success = dir.mkdirs();
             if (!success) {
-                throw new MojoExecutionException("Create directory `" + msgDir.getAbsolutePath() + "` failed.");
+                throw new MojoExecutionException("Create directory `" + msgDirectory.getAbsolutePath() + "` failed.");
             }
         }
+        // 读取已有的配置（如果存在的话）
         Properties prop = new Properties();
         File msgFile = new File(dir, msgBaseName + ".properties");
         if (msgFile.exists()) {
@@ -184,32 +193,32 @@ public class MsgExtractor extends AbstractMojo {
                 getLog().error(e);
             }
         }
+        // 将已有配置存储到 msg -> msgKey 的 map 里面
         Map<Object, Object> valueKeyMap = new HashMap<>(prop.size());
-        prop.forEach((k, v) -> {
-            if (valueKeyMap.containsKey(v)) {
-                getLog().warn("Value `" + k + "=" + v + "` duplicated with `" + valueKeyMap.get(v) + "=" + v + "`");
-            }
-            valueKeyMap.put(v, k);
-        });
-        getLog().info(valueKeyMap.toString());
-
-        Map<String, List<Tuple2<Path, Long>>> msgResultMap = getMsgResult();
+        prop.forEach((k, v) -> valueKeyMap.put(v, k));
+        // 从代码中抽取 message
+        Map<String, Map<Path, List<Long>>> msgResultMap = getMsgResult();
         Generator keyGenerator = new MsgKeyGenerator();
-
-        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(msgFile, true), StandardCharsets.UTF_8)) {
+        // 写会 message 文件
+        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(msgFile), StandardCharsets.UTF_8)) {
             int subStrIndex = commentAbsolutePath ? 0 : projectBaseDir.getAbsolutePath().length() + 1;
-            for (Map.Entry<String, List<Tuple2<Path, Long>>> entry : msgResultMap.entrySet()) {
-                for (Tuple2<Path, Long> tuple : entry.getValue()) {
+            for (Map.Entry<String, Map<Path, List<Long>>> entry : msgResultMap.entrySet()) {
+                for (Map.Entry<Path, List<Long>> pathLineNoEntry : entry.getValue().entrySet()) {
                     writer.write("# ");
-                    writer.write(tuple.v1.toString().substring(subStrIndex));
+                    // 写入文件相对于工程/module目录的相对路径
+                    writer.write(pathLineNoEntry.getKey().toString().substring(subStrIndex));
                     writer.write(':');
-                    writer.write(tuple.v2.toString());
+                    // 写入文件对应的行号（逗号分隔）
+                    writer.write(pathLineNoEntry.getValue().stream().map(Objects::toString).collect(Collectors.joining(",")));
                     writer.write('\n');
                 }
                 if (valueKeyMap.containsKey(entry.getKey())) {
-                    getLog().warn("Value `" + entry.getKey() + "` duplicated with `" + valueKeyMap.get(entry.getKey()) + "=" + entry.getKey() + "`, however message will be wrote and you must deal with it");
+                    // 如果已经存在则使用已经配置好的 msgKey
+                    writer.write(valueKeyMap.get(entry.getKey()).toString());
+                } else {
+                    // 否则按照 hashCode 生成一个 msgKey
+                    writer.write(keyGenerator.generate(entry.getKey()));
                 }
-                writer.write(keyGenerator.generate(entry.getKey()));
                 writer.write(" = ");
                 writer.write(entry.getKey());
                 writer.write("\n\n");

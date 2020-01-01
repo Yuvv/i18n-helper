@@ -4,12 +4,15 @@
     <groupId>com.jd.ads.platform</groupId>
     <artifactId>i18n-helper</artifactId>
     <packaging>maven-plugin</packaging>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
     <name>i18n-helper Maven Mojo</name>
     <url>http://git.jd.com/yuweiwei7/i18n-helper</url>
 
     <properties>
         <java.version>11</java.version>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencies>

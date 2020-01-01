@@ -1,7 +1,6 @@
 package com.jd.ads.platform;
 
 import me.xdrop.fuzzywuzzy.Applicable;
-import me.xdrop.fuzzywuzzy.FuzzySearch;
 import me.xdrop.fuzzywuzzy.algorithms.WeightedRatio;
 import me.xdrop.fuzzywuzzy.model.ExtractedResult;
 import org.apache.maven.plugin.AbstractMojo;
