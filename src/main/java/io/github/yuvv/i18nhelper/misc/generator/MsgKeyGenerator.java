@@ -1,9 +1,9 @@
-package com.jd.ads.platform.misc.generator;
+package io.github.yuvv.i18nhelper.misc.generator;
 
 /**
  * MsgKeyGenerator
  *
- * @author yuweiwei3@jd.com
+ * @author Yuvv
  * @date 2019-06-26
  */
 public class MsgKeyGenerator implements Generator {

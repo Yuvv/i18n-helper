@@ -1,8 +1,8 @@
-package com.jd.ads.platform;
+package io.github.yuvv.i18nhelper;
 
-import com.jd.ads.platform.misc.encounter.LongEncounter;
-import com.jd.ads.platform.misc.generator.Generator;
-import com.jd.ads.platform.misc.generator.MsgKeyGenerator;
+import io.github.yuvv.i18nhelper.misc.encounter.LongEncounter;
+import io.github.yuvv.i18nhelper.misc.generator.Generator;
+import io.github.yuvv.i18nhelper.misc.generator.MsgKeyGenerator;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;

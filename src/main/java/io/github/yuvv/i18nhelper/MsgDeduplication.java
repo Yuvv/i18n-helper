@@ -1,4 +1,4 @@
-package com.jd.ads.platform;
+package io.github.yuvv.i18nhelper;
 
 import me.xdrop.fuzzywuzzy.Applicable;
 import me.xdrop.fuzzywuzzy.algorithms.WeightedRatio;

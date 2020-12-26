@@ -5,7 +5,7 @@
 引入：
 ```xml
 <plugin>
-    <groupId>com.jd.ads.platform</groupId>
+    <groupId>io.github.yuvv</groupId>
     <artifactId>i18n-helper</artifactId>
     <version>1.1-SNAPSHOT</version>
 </plugin>
@@ -62,7 +62,7 @@
 2. 在默认语言删除忘了在其他语言删除。
 3. 默认语言包与显示声明的默认语言包相同key的value不同。
 
-`MsgMatcher` 用于对比这些资源文件的差异，并给出相应的提示，以便人工做出处理。 
+`MsgMatcher` 用于对比这些资源文件的差异，并给出相应的提示，以便人工做出处理。
 
 **可配置项**：
 - `msgDirectory`: 同上，不赘述。

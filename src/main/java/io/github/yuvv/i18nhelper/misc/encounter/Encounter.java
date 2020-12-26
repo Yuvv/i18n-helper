@@ -1,9 +1,9 @@
-package com.jd.ads.platform.misc.encounter;
+package io.github.yuvv.i18nhelper.misc.encounter;
 
 /**
  * Encounter
  *
- * @author yuweiwei3@jd.com
+ * @author Yuvv
  * @date 2019-06-25
  */
 public interface Encounter {

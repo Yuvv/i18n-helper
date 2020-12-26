@@ -1,4 +1,4 @@
-package com.jd.ads.platform.misc.tuple;
+package io.github.yuvv.i18nhelper.misc.tuple;
 
 /**
  * Tuple3

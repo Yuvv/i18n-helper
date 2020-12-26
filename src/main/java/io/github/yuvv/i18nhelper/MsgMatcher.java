@@ -1,7 +1,7 @@
-package com.jd.ads.platform;
+package io.github.yuvv.i18nhelper;
 
-import com.jd.ads.platform.misc.tuple.Tuple;
-import com.jd.ads.platform.misc.tuple.Tuple3;
+import io.github.yuvv.i18nhelper.misc.tuple.Tuple;
+import io.github.yuvv.i18nhelper.misc.tuple.Tuple3;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;

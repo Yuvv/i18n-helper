@@ -1,4 +1,4 @@
-package com.jd.ads.platform.misc.encounter;
+package io.github.yuvv.i18nhelper.misc.encounter;
 
 /**
  * LongEncounter
