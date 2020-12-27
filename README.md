@@ -35,8 +35,8 @@
 ```xml
 <configuration>
     <scanDirectories>
-        <directory>${basedir}/src/main/java/com/jd/ads/cpd/base/services/core/service/</directory>
-        <directory>${basedir}/src/main/java/com/jd/ads/cpd/base/services/core/provider/</directory>
+        <directory>${basedir}/src/main/java/path/to/your/project/consumer/</directory>
+        <directory>${basedir}/src/main/java/path/to/your/project/provider/</directory>
     </scanDirectories>
     <msgDirectory>${basedir}/src/main/resources/i18n/</msgDirectory>
     <msgPatterns>
@@ -74,8 +74,8 @@
 ```xml
 <configuration>
     <scanDirectories>
-        <directory>${basedir}/src/main/java/com/jd/ads/cpd/base/services/core/service/</directory>
-        <directory>${basedir}/src/main/java/com/jd/ads/cpd/base/services/core/provider/</directory>
+        <directory>${basedir}/src/main/java/path/to/your/project/consumer/</directory>
+        <directory>${basedir}/src/main/java/path/to/your/project/provider/</directory>
     </scanDirectories>
     <msgDirectory>${basedir}/src/main/resources/i18n/</msgDirectory>
     <defaultLocale>zh-CN</defaultLocale>
@@ -91,6 +91,8 @@
 用于提示的 message 很容易出现差异很小、内容相似的情况，
 这种时候将其内容修改为一致或者将其中部分差异提取为参数可以减小维护工作量，缩小资源文件大小。
 
+文本相似度使用 [fuzzywuzzy](https://github.com/xdrop/fuzzywuzzy) 实现。
+
 `MsgDeduplication` 用于对比资源文件中 message 的差异，并想相似的 message 归并，以便用户手动处理。
 
 > PS: 目前对中文的支持其实不是很好，后续再优化 😂😂😂
@@ -104,8 +106,8 @@
 ```xml
 <configuration>
     <scanDirectories>
-        <directory>${basedir}/src/main/java/com/jd/ads/cpd/base/services/core/service/</directory>
-        <directory>${basedir}/src/main/java/com/jd/ads/cpd/base/services/core/provider/</directory>
+        <directory>${basedir}/src/main/java/path/to/your/project/consumer/</directory>
+        <directory>${basedir}/src/main/java/path/to/your/project/provider/</directory>
     </scanDirectories>
     <msgDirectory>${basedir}/src/main/resources/i18n/</msgDirectory>
     <msgSimilarityCutoff>75</msgSimilarityCutoff>
