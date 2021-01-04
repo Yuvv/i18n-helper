@@ -20,19 +20,7 @@ import java.util.*;
  * @date 2019/06/23
  */
 @Mojo(name = "deduplicate", defaultPhase = LifecyclePhase.PROCESS_RESOURCES)
-public class MsgDeduplication extends AbstractMojo {
-
-    /**
-     * messages 文件名前缀
-     */
-    @Parameter(defaultValue = "messages", property = "msgBaseName", readonly = true)
-    private String msgBaseName;
-
-    /**
-     * messages 文件输出文件夹
-     */
-    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msgDir", required = true)
-    private File msgDir;
+public class MsgDeduplication extends AbstractMsgMojo {
 
     /**
      * message 相似度阈值 1-99
@@ -42,7 +30,7 @@ public class MsgDeduplication extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
-        File msgFile = new File(msgDir, msgBaseName + ".properties");
+        File msgFile = new File(msgDirectory, msgBaseName + ".properties");
         if (!msgFile.exists()) {
             throw new MojoExecutionException("File " + msgFile.getAbsolutePath() + " not exists");
         }

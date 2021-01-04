@@ -23,21 +23,9 @@ import java.util.*;
  * @date 2019/06/23
  */
 @Mojo(name = "match", defaultPhase = LifecyclePhase.PROCESS_RESOURCES)
-public class MsgMatcher extends AbstractMojo {
+public class MsgMatcher extends AbstractMsgMojo {
 
     public static final String MSG_FILE_EXT = ".properties";
-
-    /**
-     * messages 文件名前缀
-     */
-    @Parameter(defaultValue = "messages", property = "msgBaseName", readonly = true)
-    private String msgBaseName;
-
-    /**
-     * messages 文件输出文件夹
-     */
-    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msgDir", required = true)
-    private File msgDir;
 
     /**
      * 需要匹配的语言，默认全部
@@ -95,7 +83,7 @@ public class MsgMatcher extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
-        File baseMsgFile = new File(msgDir, msgBaseName + MSG_FILE_EXT);
+        File baseMsgFile = new File(msgDirectory, msgBaseName + MSG_FILE_EXT);
         if (!baseMsgFile.exists()) {
             throw new MojoExecutionException("File " + baseMsgFile.getAbsolutePath() + " not exists");
         }
@@ -109,7 +97,7 @@ public class MsgMatcher extends AbstractMojo {
                 return;
             }
 
-            Files.walk(msgDir.toPath())
+            Files.walk(msgDirectory.toPath())
                     .filter(Files::isRegularFile)
                     .filter(path -> {
                         File file = path.toFile();

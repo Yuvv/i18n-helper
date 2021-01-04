@@ -3,7 +3,7 @@ package io.github.yuvv.i18nhelper;
 import io.github.yuvv.i18nhelper.misc.encounter.LongEncounter;
 import io.github.yuvv.i18nhelper.misc.generator.Generator;
 import io.github.yuvv.i18nhelper.misc.generator.MsgKeyGenerator;
-import org.apache.maven.plugin.AbstractMojo;
+import io.github.yuvv.i18nhelper.misc.prop.MsgProperties;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  * @date 2019/06/23
  */
 @Mojo(name = "extract", defaultPhase = LifecyclePhase.PROCESS_SOURCES)
-public class MsgExtractor extends AbstractMojo {
+public class MsgExtractor extends AbstractMsgMojo {
 
     /**
      * message 参数正则
@@ -43,18 +43,6 @@ public class MsgExtractor extends AbstractMojo {
      */
     @Parameter(defaultValue = "false", readonly = true)
     private boolean commentAbsolutePath;
-
-    /**
-     * messages 文件名前缀
-     */
-    @Parameter(defaultValue = "messages", property = "msgBaseName", readonly = true)
-    private String msgBaseName;
-
-    /**
-     * messages 文件输出文件夹
-     */
-    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msgDirectory", required = true)
-    private File msgDirectory;
 
     /**
      * 包含 messages 的代码扫描目录
@@ -175,6 +163,13 @@ public class MsgExtractor extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
+        // --> debug info
+        getLog().debug("Message Patterns:");
+        for (Pattern msgPattern : msgPatterns) {
+            getLog().debug("\t" + msgPattern.toString());
+        }
+
+        // --> main logic begins
         File dir = msgDirectory;
         if (!dir.exists()) {
             // 输出目录不存在的话先递归创建输出目录
@@ -184,7 +179,7 @@ public class MsgExtractor extends AbstractMojo {
             }
         }
         // 读取已有的配置（如果存在的话）
-        Properties prop = new Properties();
+        MsgProperties prop = new MsgProperties();
         File msgFile = new File(dir, msgBaseName + ".properties");
         if (msgFile.exists()) {
             try (FileInputStream is = new FileInputStream(msgFile)) {
@@ -194,35 +189,40 @@ public class MsgExtractor extends AbstractMojo {
             }
         }
         // 将已有配置存储到 msg -> msgKey 的 map 里面
-        Map<Object, Object> valueKeyMap = new HashMap<>(prop.size());
+        Map<String, String> valueKeyMap = new HashMap<>(prop.size());
         prop.forEach((k, v) -> valueKeyMap.put(v, k));
-        // 从代码中抽取 message
+        // 从代码中抽取 message，msg -> path -> lineNo 的映射
         Map<String, Map<Path, List<Long>>> msgResultMap = getMsgResult();
         Generator keyGenerator = new MsgKeyGenerator();
-        // 写会 message 文件
-        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(msgFile), StandardCharsets.UTF_8)) {
-            int subStrIndex = commentAbsolutePath ? 0 : projectBaseDir.getAbsolutePath().length() + 1;
-            for (Map.Entry<String, Map<Path, List<Long>>> entry : msgResultMap.entrySet()) {
-                for (Map.Entry<Path, List<Long>> pathLineNoEntry : entry.getValue().entrySet()) {
-                    writer.write("# ");
-                    // 写入文件相对于工程/module目录的相对路径
-                    writer.write(pathLineNoEntry.getKey().toString().substring(subStrIndex));
-                    writer.write(':');
-                    // 写入文件对应的行号（逗号分隔）
-                    writer.write(pathLineNoEntry.getValue().stream().map(Objects::toString).collect(Collectors.joining(",")));
-                    writer.write('\n');
-                }
-                if (valueKeyMap.containsKey(entry.getKey())) {
-                    // 如果已经存在则使用已经配置好的 msgKey
-                    writer.write(valueKeyMap.get(entry.getKey()).toString());
+        int subStrIndex = commentAbsolutePath ? 0 : projectBaseDir.getAbsolutePath().length() + 1;
+        for (Map.Entry<String, Map<Path, List<Long>>> entry : msgResultMap.entrySet()) {
+            Map<String, Set<Integer>> comments = entry.getValue().entrySet().stream()
+                    // 写入文件相对于工程/module目录的相对路径，同时确保路径分隔符一致
+                    .collect(Collectors.toMap(e -> e.getKey().toString().substring(subStrIndex).replaceAll("\\\\", "/"),
+                            // 写入文件对应的行号（逗号分隔）
+                            e -> e.getValue().stream().filter(Objects::nonNull).map(Long::intValue).collect(Collectors.toSet())));
+
+            String msgKey;
+            if (valueKeyMap.containsKey(entry.getKey())) {
+                // 如果已经存在则使用已经配置好的 msgKey，追加注释即可
+                msgKey = valueKeyMap.get(entry.getKey());
+                prop.mergeComment(msgKey, comments);
+            } else {
+                if (entry.getKey().startsWith("{") && entry.getKey().endsWith("}")
+                        && prop.containsKey(entry.getKey().substring(1, entry.getKey().length() - 1))) {
+                    // 已经做替换的，更新注释即可
+                    prop.putComment(entry.getKey().substring(1, entry.getKey().length() - 1), comments);
                 } else {
                     // 否则按照 hashCode 生成一个 msgKey
-                    writer.write(keyGenerator.generate(entry.getKey()));
+                    msgKey = keyGenerator.generate(entry.getKey());
+
+                    prop.put(msgKey, entry.getKey(), comments);
                 }
-                writer.write(" = ");
-                writer.write(entry.getKey());
-                writer.write("\n\n");
             }
+        }
+        // 写回 message 文件
+        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(msgFile), StandardCharsets.UTF_8)) {
+            prop.store(writer);
             writer.flush();
         } catch (IOException e) {
             getLog().error(e);
