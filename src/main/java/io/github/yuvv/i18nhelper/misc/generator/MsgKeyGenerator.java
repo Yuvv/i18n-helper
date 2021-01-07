@@ -9,7 +9,7 @@ package io.github.yuvv.i18nhelper.misc.generator;
 public class MsgKeyGenerator implements Generator {
 
     private static final String KEY_CHARS = "0123456789";
-    private static final String KEY_PREFIX = "SAMPLE";
+    private static final String KEY_PREFIX = "SAMPLE.";
 
     private int keyLen;
 
