@@ -2,7 +2,6 @@ package io.github.yuvv.i18nhelper;
 
 import io.github.yuvv.i18nhelper.misc.tuple.Tuple;
 import io.github.yuvv.i18nhelper.misc.tuple.Tuple3;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -23,21 +22,9 @@ import java.util.*;
  * @date 2019/06/23
  */
 @Mojo(name = "match", defaultPhase = LifecyclePhase.PROCESS_RESOURCES)
-public class MsgMatcher extends AbstractMojo {
+public class MsgMatcher extends AbstractMsgMojo {
 
     public static final String MSG_FILE_EXT = ".properties";
-
-    /**
-     * messages 文件名前缀
-     */
-    @Parameter(defaultValue = "messages", property = "msgBaseName", readonly = true)
-    private String msgBaseName;
-
-    /**
-     * messages 文件输出文件夹
-     */
-    @Parameter(defaultValue = "${project.build.directory}/resources/i18n", property = "msgDir", required = true)
-    private File msgDir;
 
     /**
      * 需要匹配的语言，默认全部
@@ -90,12 +77,12 @@ public class MsgMatcher extends AbstractMojo {
     }
 
     private void logDividingLine() {
-        getLog().warn("-----------------------------------------------------------");
+        getLog().info("-----------------------------------------------------------");
     }
 
     @Override
     public void execute() throws MojoExecutionException {
-        File baseMsgFile = new File(msgDir, msgBaseName + MSG_FILE_EXT);
+        File baseMsgFile = new File(msgDirectory, msgBaseName + MSG_FILE_EXT);
         if (!baseMsgFile.exists()) {
             throw new MojoExecutionException("File " + baseMsgFile.getAbsolutePath() + " not exists");
         }
@@ -109,7 +96,7 @@ public class MsgMatcher extends AbstractMojo {
                 return;
             }
 
-            Files.walk(msgDir.toPath())
+            Files.walk(msgDirectory.toPath())
                     .filter(Files::isRegularFile)
                     .filter(path -> {
                         File file = path.toFile();
@@ -132,10 +119,10 @@ public class MsgMatcher extends AbstractMojo {
                     }).forEach(path -> {
                         File curFile = path.toFile();
                         String filename = curFile.getName();
-                        try {
+                        try (InputStreamReader isReader = new InputStreamReader(new FileInputStream(curFile), StandardCharsets.UTF_8)) {
                             Tuple3<String, String, Locale> fileInfoTuple = getFileNameExtLocale(filename);
                             Properties curProp = new Properties();
-                            curProp.load(new InputStreamReader(new FileInputStream(curFile), StandardCharsets.UTF_8));
+                            curProp.load(isReader);
 
                             Set<String> curPropNames = curProp.stringPropertyNames();
                             Set<String> notEqualsDefaultLocalePropNames = new HashSet<>();
