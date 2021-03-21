@@ -2,7 +2,6 @@ package io.github.yuvv.i18nhelper;
 
 import io.github.yuvv.i18nhelper.misc.tuple.Tuple;
 import io.github.yuvv.i18nhelper.misc.tuple.Tuple3;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -78,7 +77,7 @@ public class MsgMatcher extends AbstractMsgMojo {
     }
 
     private void logDividingLine() {
-        getLog().warn("-----------------------------------------------------------");
+        getLog().info("-----------------------------------------------------------");
     }
 
     @Override
@@ -120,10 +119,10 @@ public class MsgMatcher extends AbstractMsgMojo {
                     }).forEach(path -> {
                         File curFile = path.toFile();
                         String filename = curFile.getName();
-                        try {
+                        try (InputStreamReader isReader = new InputStreamReader(new FileInputStream(curFile), StandardCharsets.UTF_8)) {
                             Tuple3<String, String, Locale> fileInfoTuple = getFileNameExtLocale(filename);
                             Properties curProp = new Properties();
-                            curProp.load(new InputStreamReader(new FileInputStream(curFile), StandardCharsets.UTF_8));
+                            curProp.load(isReader);
 
                             Set<String> curPropNames = curProp.stringPropertyNames();
                             Set<String> notEqualsDefaultLocalePropNames = new HashSet<>();

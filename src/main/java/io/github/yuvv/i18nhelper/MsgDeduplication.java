@@ -35,8 +35,8 @@ public class MsgDeduplication extends AbstractMsgMojo {
             throw new MojoExecutionException("File " + msgFile.getAbsolutePath() + " not exists");
         }
         Properties msgProperties = new Properties();
-        try {
-            msgProperties.load(new InputStreamReader(new FileInputStream(msgFile), StandardCharsets.UTF_8));
+        try (InputStreamReader isReader = new InputStreamReader(new FileInputStream(msgFile), StandardCharsets.UTF_8)) {
+            msgProperties.load(isReader);
             // 转换为 msg 到具体 code 的 map
             Map<String, String> valueKeyMap = new HashMap<>(msgProperties.size());
             msgProperties.forEach((k, v) -> {
@@ -47,7 +47,7 @@ public class MsgDeduplication extends AbstractMsgMojo {
                 }
                 valueKeyMap.put(vStr, kStr);
             });
-            Set<String> propNameSet =valueKeyMap.keySet();
+            Set<String> propNameSet = new HashSet<>(valueKeyMap.keySet());
             List<List<ExtractedResult>> similarPropNames = new ArrayList<>();
 
             Applicable func = new WeightedRatio();
@@ -83,10 +83,10 @@ public class MsgDeduplication extends AbstractMsgMojo {
                 }
                 Iterator<ExtractedResult> iterator = list.iterator();
                 ExtractedResult first = iterator.next();
-                getLog().info("[ " + first.getString() + " = " + msgProperties.getProperty(first.getString()) + " ] highly similar to:");
+                getLog().info("[ " + first.getString() + " = " + valueKeyMap.get(first.getString()) + " ] highly similar to:");
                 while (iterator.hasNext()) {
                     ExtractedResult next = iterator.next();
-                    getLog().info("    [ " + next.getString() + " = " + msgProperties.getProperty(next.getString()) + " ] --> score=" + next.getScore());
+                    getLog().info("    [ " + next.getString() + " = " + valueKeyMap.get(next.getString()) + " ] --> score=" + next.getScore());
                 }
             });
         } catch (IOException e) {

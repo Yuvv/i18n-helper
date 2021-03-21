@@ -26,7 +26,8 @@
 **可配置项**：
 - `scanDirectories`: 待提取源代码扫描目录。
 - `msgDirectory`: `messages`资源文件所在目录。
-- `msgPatterns`: message 字符串正则。必填。
+- `msgPatterns`: message 字符串正则。必填，必须包含 `msg` 分组。
+- `msgKeyPatterns`: messageKey 字符串正则。非必填，填的话必须包含 `msgKey` 分组。
 - `includeFilePatterns`: 需要扫描的文件绝对路径正则。默认为`.*\.java`。(需要格外注意路径正则中的间隔符的编写，以防因为系统差异而无法匹配。下同)
 - `excludeFilePatterns`: 需要排除的文件绝对路径正则。非必填，默认为空，不额外排除文件。
 - `commentAbsolutePath`: 写文件时所用的文件路径是否使用绝对路径，默认为`false`，使用相对于project/module的相对路径。
@@ -39,9 +40,12 @@
         <directory>${basedir}/src/main/java/path/to/your/project/provider/</directory>
     </scanDirectories>
     <msgDirectory>${basedir}/src/main/resources/i18n/</msgDirectory>
+    <msgKeyPatterns>
+        <pattern><![CDATA[  translate\("(?<msgKey>.*?)"\)  ]]></pattern>
+    </msgKeyPatterns>
     <msgPatterns>
-        <pattern><![CDATA[  .*?XyzResult.fail\("(?<msg>.*?)"\).*  ]]></pattern>
-        <pattern><![CDATA[  .*?@[a-zA-Z]+?\(.*?message ?= ?"(?<msg>.*?)".*?\).*  ]]></pattern>
+        <pattern><![CDATA[  XyzResult.fail\("(?<msg>.*?)"\)  ]]></pattern>
+        <pattern><![CDATA[  @[a-zA-Z]+?\(.*?message ?= ?"(?<msg>.*?)".*?\)  ]]></pattern>
     </msgPatterns>
     <includeFilePatterns>
         <pattern>.*\.java</pattern>

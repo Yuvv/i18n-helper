@@ -51,10 +51,16 @@ public class MsgExtractor extends AbstractMsgMojo {
     private File[] scanDirectories;
 
     /**
-     * 代码中的 messages 匹配正则
+     * 代码中的 messages 匹配正则，必须要有 `msg` 分组
      */
     @Parameter(property = "msgPatterns", required = true)
     private Pattern[] msgPatterns;
+
+    /**
+     * 代码中的 messageKey 匹配正则，必须要有 `msgKey` 分组
+     */
+    @Parameter(property = "msgKeyPatterns")
+    private Pattern[] msgKeyPatterns;
 
     /**
      * 扫描目录下需要读取解析的文件
@@ -68,31 +74,37 @@ public class MsgExtractor extends AbstractMsgMojo {
     @Parameter(property = "excludeFilePatterns")
     private Pattern[] excludeFilePatterns;
 
-    public void setMsgPatterns(String[] msgPatterns) {
-        this.msgPatterns = new Pattern[msgPatterns.length];
-        for (int i = 0; i < msgPatterns.length; i++) {
-            this.msgPatterns[i] = Pattern.compile(msgPatterns[i]);
+    private Pattern[] convertToPattern(String[] patternStrings) {
+        Pattern[] result = new Pattern[patternStrings.length];
+        for (int i = 0; i < patternStrings.length; i++) {
+            result[i] = Pattern.compile(patternStrings[i]);
         }
+        return result;
+    }
+
+    public void setMsgPatterns(String[] msgPatterns) {
+        this.msgPatterns = convertToPattern(msgPatterns);
+    }
+
+    public void setMsgKeyPatterns(String[] msgKeyPatterns) {
+        if (msgKeyPatterns == null) {
+            return;
+        }
+        this.msgKeyPatterns = convertToPattern(msgKeyPatterns);
     }
 
     public void setIncludeFilePatterns(String[] includeFilePatterns) {
         if (includeFilePatterns == null) {
             return;
         }
-        this.includeFilePatterns = new Pattern[includeFilePatterns.length];
-        for (int i = 0; i < includeFilePatterns.length; i++) {
-            this.includeFilePatterns[i] = Pattern.compile(includeFilePatterns[i]);
-        }
+        this.includeFilePatterns = convertToPattern(includeFilePatterns);
     }
 
     public void setExcludeFilePatterns(String[] excludeFilePatterns) {
         if (excludeFilePatterns == null) {
             return;
         }
-        this.excludeFilePatterns = new Pattern[excludeFilePatterns.length];
-        for (int i = 0; i < excludeFilePatterns.length; i++) {
-            this.excludeFilePatterns[i] = Pattern.compile(excludeFilePatterns[i]);
-        }
+        this.excludeFilePatterns = convertToPattern(excludeFilePatterns);
     }
 
     /**
@@ -101,8 +113,8 @@ public class MsgExtractor extends AbstractMsgMojo {
      * @return msg -> path -> lineNo 的映射
      */
     private Map<String, Map<Path, List<Long>>> getMsgResult() {
-        // 使用 tree map 保证有序
-        Map<String, Map<Path, List<Long>>> msgResultMap = new TreeMap<>();
+        // 第一层使用 hashmap 即可
+        Map<String, Map<Path, List<Long>>> msgResultMap = new HashMap<>();
         for (File scanDir : scanDirectories) {
             try {
                 Files.walk(scanDir.toPath())
@@ -128,9 +140,11 @@ public class MsgExtractor extends AbstractMsgMojo {
                     try (BufferedReader bufferedReader = new BufferedReader(new FileReader(filePath.toFile()))) {
                         LongEncounter encounter = new LongEncounter(1L);
                         bufferedReader.lines().forEachOrdered(line -> {
+                            // get all message
                             for (Pattern pattern : msgPatterns) {
                                 Matcher matcher = pattern.matcher(line);
-                                if (matcher.matches()) {
+                                // find all messages match the pattern
+                                while (matcher.find()) {
                                     String msg = matcher.group("msg");
                                     String[] msgSegments = MSG_PARAM_PATTERN.split(msg);
                                     StringBuilder sb = new StringBuilder();
@@ -141,9 +155,21 @@ public class MsgExtractor extends AbstractMsgMojo {
                                         sb.append('}');
                                     }
                                     sb.delete(sb.length() - 3, sb.length());
-                                    // 使用 tree map 保证有序
+                                    // 这里使用 tree map 保证有序
                                     msgResultMap.computeIfAbsent(sb.toString(), k -> new TreeMap<>())
                                             .computeIfAbsent(filePath, path -> new ArrayList<>()).add(encounter.getCount());
+                                }
+                            }
+                            // get all message key
+                            if (msgKeyPatterns != null) {
+                                for (Pattern pattern : msgKeyPatterns) {
+                                    Matcher matcher = pattern.matcher(line);
+                                    while (matcher.find()) {
+                                        String msgKey = matcher.group("msgKey");
+                                        // wrap message key with `{}` and put it into `msgResultMap`
+                                        msgResultMap.computeIfAbsent("{" + msgKey + "}", k -> new TreeMap<>())
+                                                .computeIfAbsent(filePath, path -> new ArrayList<>()).add(encounter.getCount());
+                                    }
                                 }
                             }
                             encounter.increase();
@@ -164,9 +190,11 @@ public class MsgExtractor extends AbstractMsgMojo {
     @Override
     public void execute() throws MojoExecutionException {
         // --> debug info
-        getLog().debug("Message Patterns:");
-        for (Pattern msgPattern : msgPatterns) {
-            getLog().debug("\t" + msgPattern.toString());
+        if (getLog().isDebugEnabled()) {
+            getLog().debug("Message Patterns:");
+            for (Pattern msgPattern : msgPatterns) {
+                getLog().debug("\t" + msgPattern.toString());
+            }
         }
 
         // --> main logic begins
@@ -208,8 +236,7 @@ public class MsgExtractor extends AbstractMsgMojo {
                 msgKey = valueKeyMap.get(entry.getKey());
                 prop.mergeComment(msgKey, comments);
             } else {
-                if (entry.getKey().startsWith("{") && entry.getKey().endsWith("}")
-                        && prop.containsKey(entry.getKey().substring(1, entry.getKey().length() - 1))) {
+                if (entry.getKey().startsWith("{") && entry.getKey().endsWith("}")) {
                     // 已经做替换的，更新注释即可
                     prop.putComment(entry.getKey().substring(1, entry.getKey().length() - 1), comments);
                 } else {
